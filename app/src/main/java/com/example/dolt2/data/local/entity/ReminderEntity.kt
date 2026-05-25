@@ -1,24 +1,21 @@
-package com.example.dolt2.data.local.entity // Corregido el package para que coincida con tu proyecto
+package com.example.dolt2.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-// Asegúrate de que TaskEntity existe y está importada si está en otro paquete
-// import com.example.dolt2.data.local.entity.TaskEntity
-
 @Entity(
     tableName = "reminder",
     foreignKeys = [
         ForeignKey(
             entity = TaskEntity::class,
-            parentColumns = ["id"], // Asegúrate de que en TaskEntity la PK se llame "id"
+            parentColumns = ["id"],
             childColumns = ["taskId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["taskId"], unique = true)]
+    indices = [Index("taskId", unique = true)]
 )
 data class ReminderEntity(
     @PrimaryKey(autoGenerate = true)

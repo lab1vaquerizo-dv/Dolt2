@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.jv.dolt"
+    namespace = "com.example.dolt2"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.jv.dolt"
+        applicationId = "com.example.dolt2"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -61,6 +61,8 @@ dependencies {
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.hilt.common)
+    implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.hilt.android)
