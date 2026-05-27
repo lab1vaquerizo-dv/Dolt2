@@ -140,11 +140,12 @@ fun TaskListScreen(
             }
 
 
-            // Chips de filtro en scroll horizontal ya que al hacerlos normal con row, las palabras se partian por la mitad
-            androidx.compose.foundation.lazy.LazyRow(
+            // Chips de filtro y orden
+            LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
-                modifier = Modifier.padding(vertical = 4.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 8.dp)
             ) {
                 items(TaskFilter.entries) { filter ->
                     FilterChip(
@@ -158,8 +159,7 @@ fun TaskListScreen(
                                     TaskFilter.COMPLETED -> "Completadas"
                                 },
                                 fontWeight = if (uiState.filter == filter)
-                                    FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 1
+                                    FontWeight.Bold else FontWeight.Normal
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
@@ -167,28 +167,39 @@ fun TaskListScreen(
                             selectedLabelColor = Color.White
                         )
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                    ) {
+                }
+
+                item {
+                    VerticalDivider(
+                        modifier = Modifier
+                            .height(24.dp)
+                            .padding(horizontal = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Sort,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "Ordenar:",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Spacer(Modifier.width(8.dp))
-                        listOf(TaskSort.BY_DATE to "Fecha", TaskSort.BY_PRIORITY to "Prioridad").forEach { (sort, label) ->
+                        TaskSort.entries.forEach { sort ->
                             FilterChip(
                                 selected = uiState.sort == sort,
                                 onClick = { viewModel.setSort(sort) },
-                                label = { Text(label, fontSize = 12.sp) },
+                                label = {
+                                    Text(
+                                        when (sort) {
+                                            TaskSort.BY_DATE -> "Fecha"
+                                            TaskSort.BY_PRIORITY -> "Prioridad"
+                                        },
+                                        fontSize = 12.sp
+                                    )
+                                },
                                 modifier = Modifier.padding(end = 6.dp),
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
