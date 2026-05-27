@@ -8,31 +8,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dolt2.data.local.entity.CategoryEntity
+import com.example.dolt2.ui.tasks.parseColor
 
-// Paleta de colores predefinidos para elegir al crear una categoría
 val categoryColors = listOf(
-    "#1A73E8", // Azul (color primario de Dolt)
-    "#FF6B35", // Naranja (acento de Dolt)
-    "#34A853", // Verde
-    "#EA4335", // Rojo
-    "#9C27B0", // Morado
-    "#FF9800", // Ámbar
-    "#00BCD4", // Cyan
-    "#795548"  // Marrón
+    "#1A73E8", "#FF6B35", "#34A853", "#EA4335",
+    "#9C27B0", "#FF9800", "#00BCD4", "#795548"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,65 +43,68 @@ fun CategoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Categorías") },
+                title = {
+                    Text("Categorías", fontWeight = FontWeight.Bold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Atrás"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary
                 )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showCreateDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nueva categoría")
-            }
-        }
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Nueva categoría", fontWeight = FontWeight.Medium) }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-
         when {
             uiState.isLoading -> {
-                Box(
-                    Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             uiState.categories.isEmpty() -> {
-                Box(
-                    Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No tienes categorías.\nPulsa + para crear una.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box(Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Label,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "No tienes categorías.\nPulsa el botón para crear una.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
             else -> {
                 LazyColumn(
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = 16.dp, end = 16.dp,
                         top = paddingValues.calculateTopPadding() + 8.dp,
-                        bottom = 88.dp
+                        bottom = 120.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(
-                        items = uiState.categories,
-                        key = { it.id }
-                    ) { category ->
+                    items(items = uiState.categories, key = { it.id }) { category ->
                         CategoryCard(
                             category = category,
                             onDelete = { viewModel.deleteCategory(category) }
@@ -127,79 +126,89 @@ fun CategoryScreen(
     }
 }
 
-// ── Tarjeta de categoria ──────────────────────────────────────────────────────
-
 @Composable
 fun CategoryCard(
     category: CategoryEntity,
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val catColor = parseColor(category.colorHex)
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eliminar categoría") },
+            title = { Text("Eliminar categoría", fontWeight = FontWeight.Bold) },
             text = {
-                Text(
-                    "¿Seguro que quieres eliminar «${category.name}»? " +
-                            "Las tareas de esta categoría quedarán sin categoría."
-                )
+                Text("¿Seguro que quieres eliminar «${category.name}»? Las tareas asociadas quedarán sin categoría.")
             },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete()
                     showDeleteDialog = false
                 }) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
             }
         )
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = Modifier.padding(12.dp)
         ) {
-            // Círculo de color de la categoría
+            // Círculo de color grande
             Box(
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(parseColor(category.colorHex))
-            )
+                    .background(catColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(catColor)
+                )
+            }
 
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
 
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = category.colorHex.uppercase(),
+                    fontSize = 11.sp,
+                    color = catColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
 
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Eliminar categoría",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    contentDescription = "Eliminar",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                 )
             }
         }
     }
 }
-
-// ── Dialogo para crear categoría ──────────────────────────────────────────────
 
 @Composable
 fun CreateCategoryDialog(
@@ -212,78 +221,70 @@ fun CreateCategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nueva categoría") },
+        title = { Text("Nueva categoría", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Campo de nombre
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = false
-                    },
+                    onValueChange = { name = it; nameError = false },
                     label = { Text("Nombre *") },
                     placeholder = { Text("Ej: Trabajo, Personal...") },
                     isError = nameError,
-                    supportingText = if (nameError) {
-                        { Text("El nombre es obligatorio") }
-                    } else null,
+                    supportingText = if (nameError) { { Text("El nombre es obligatorio") } } else null,
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Selector de color
                 Text(
                     "Color",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(categoryColors) { colorHex ->
                         val isSelected = colorHex == selectedColor
                         Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(parseColor(colorHex))
                                 .then(
                                     if (isSelected) Modifier.border(
-                                        width = 3.dp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        shape = CircleShape
+                                        3.dp, MaterialTheme.colorScheme.onSurface, CircleShape
                                     ) else Modifier
                                 )
                                 .clickable { selectedColor = colorHex }
-                        )
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                if (name.isBlank()) {
-                    nameError = true
-                } else {
-                    onCreate(name, selectedColor)
-                }
-            }) {
-                Text("Crear")
+            Button(
+                onClick = {
+                    if (name.isBlank()) nameError = true
+                    else onCreate(name, selectedColor)
+                },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Crear", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
-}
-
-// ── Función auxiliar ──────────────────────────────────────────────────────────
-
-fun parseColor(hex: String): Color {
-    return try {
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (e: Exception) {
-        Color(0xFF1A73E8)
-    }
 }
