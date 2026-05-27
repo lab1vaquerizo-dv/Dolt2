@@ -10,6 +10,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.DismissDirection
+import androidx.compose.material.DismissValue
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.SwipeToDismiss
+import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +49,7 @@ fun TaskListScreen(
     onNavigateToNewTask: () -> Unit,
     onNavigateToTaskDetail: (Long) -> Unit,
     onNavigateToCategories: () -> Unit,
+    onNavigateToStats: () -> Unit,           // ← nueva
     viewModel: TaskListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -65,6 +71,9 @@ fun TaskListScreen(
                             if (showSearch) Icons.Default.SearchOff else Icons.Default.Search,
                             contentDescription = "Buscar"
                         )
+                    }
+                    IconButton(onClick = onNavigateToStats) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Estadísticas")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -130,12 +139,14 @@ fun TaskListScreen(
                 )
             }
 
-            // Chips de filtro
-            Row(
+
+            // Chips de filtro en scroll horizontal ya que al hacerlos normal con row, las palabras se partian por la mitad
+            androidx.compose.foundation.lazy.LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                modifier = Modifier.padding(vertical = 4.dp)
             ) {
-                TaskFilter.entries.forEach { filter ->
+                items(TaskFilter.entries) { filter ->
                     FilterChip(
                         selected = uiState.filter == filter,
                         onClick = { viewModel.setFilter(filter) },
@@ -147,7 +158,8 @@ fun TaskListScreen(
                                     TaskFilter.COMPLETED -> "Completadas"
                                 },
                                 fontWeight = if (uiState.filter == filter)
-                                    FontWeight.Bold else FontWeight.Normal
+                                    FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
@@ -155,6 +167,36 @@ fun TaskListScreen(
                             selectedLabelColor = Color.White
                         )
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Sort,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Ordenar:",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        listOf(TaskSort.BY_DATE to "Fecha", TaskSort.BY_PRIORITY to "Prioridad").forEach { (sort, label) ->
+                            FilterChip(
+                                selected = uiState.sort == sort,
+                                onClick = { viewModel.setSort(sort) },
+                                label = { Text(label, fontSize = 12.sp) },
+                                modifier = Modifier.padding(end = 6.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -199,7 +241,7 @@ fun TaskListScreen(
                     ) {
                         items(items = uiState.tasks, key = { it.id }) { task ->
                             val category = uiState.categories.find { it.id == task.categoryId }
-                            TaskCard(
+                            SwipeableTaskCard(
                                 task = task,
                                 category = category,
                                 onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
@@ -212,6 +254,80 @@ fun TaskListScreen(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun SwipeableTaskCard(
+    task: TaskEntity,
+    category: CategoryEntity?,
+    onToggleCompleted: () -> Unit,
+    onDelete: () -> Unit,
+    onTap: () -> Unit
+) {
+    val dismissState = rememberDismissState(
+        confirmStateChange = { dismissValue ->
+            when (dismissValue) {
+                DismissValue.DismissedToEnd -> {
+                    onToggleCompleted()
+                    false // no eliminar la tarjeta, solo toggle
+                }
+                DismissValue.DismissedToStart -> {
+                    onDelete()
+                    true // eliminar la tarjeta
+                }
+                else -> false
+            }
+        }
+    )
+
+    SwipeToDismiss(
+        state = dismissState,
+        background = {
+            val direction = dismissState.dismissDirection
+            val color by animateColorAsState(
+                when (dismissState.targetValue) {
+                    DismissValue.DismissedToEnd ->
+                        Color(0xFF34A853) // verde = completar
+                    DismissValue.DismissedToStart ->
+                        MaterialTheme.colorScheme.error // rojo = borrar
+                    else -> Color.Transparent
+                },
+                label = "swipeColor"
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(color)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = when (direction) {
+                    DismissDirection.StartToEnd -> Alignment.CenterStart
+                    DismissDirection.EndToStart -> Alignment.CenterEnd
+                    else -> Alignment.Center
+                }
+            ) {
+                Icon(
+                    imageVector = when (direction) {
+                        DismissDirection.StartToEnd -> Icons.Default.Check
+                        else -> Icons.Default.Delete
+                    },
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        dismissContent = {
+            TaskCard(
+                task = task,
+                category = category,
+                onToggleCompleted = onToggleCompleted,
+                onDelete = onDelete,
+                onTap = onTap
+            )
+        }
+    )
 }
 
 @Composable
@@ -342,9 +458,10 @@ fun TaskCard(
                             )
                             Spacer(Modifier.width(2.dp))
                             Text(
-                                text = SimpleDateFormat("dd MMM", Locale.getDefault())
+                                text = SimpleDateFormat("dd/MM/yy", Locale.getDefault())
                                     .format(Date(task.dueDate)),
                                 fontSize = 11.sp,
+                                maxLines = 1,
                                 color = if (isOverdue) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )

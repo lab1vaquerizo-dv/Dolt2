@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,14 +71,22 @@ fun CategoryScreen(
     ) { paddingValues ->
         when {
             uiState.isLoading -> {
-                Box(Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             }
             uiState.categories.isEmpty() -> {
-                Box(Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Default.Label,
@@ -90,7 +99,7 @@ fun CategoryScreen(
                             "No tienes categorías.\nPulsa el botón para crear una.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -98,7 +107,8 @@ fun CategoryScreen(
             else -> {
                 LazyColumn(
                     contentPadding = PaddingValues(
-                        start = 16.dp, end = 16.dp,
+                        start = 16.dp,
+                        end = 16.dp,
                         top = paddingValues.calculateTopPadding() + 8.dp,
                         bottom = 120.dp
                     ),
@@ -107,7 +117,10 @@ fun CategoryScreen(
                     items(items = uiState.categories, key = { it.id }) { category ->
                         CategoryCard(
                             category = category,
-                            onDelete = { viewModel.deleteCategory(category) }
+                            onDelete = { viewModel.deleteCategory(category) },
+                            onEdit = { name, color ->
+                                viewModel.updateCategory(category, name, color)
+                            }
                         )
                     }
                 }
@@ -126,12 +139,16 @@ fun CategoryScreen(
     }
 }
 
+// ── Tarjeta de categoría ──────────────────────────────────────────────────────
+
 @Composable
 fun CategoryCard(
     category: CategoryEntity,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: (String, String) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     val catColor = parseColor(category.colorHex)
 
     if (showDeleteDialog) {
@@ -139,19 +156,38 @@ fun CategoryCard(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Eliminar categoría", fontWeight = FontWeight.Bold) },
             text = {
-                Text("¿Seguro que quieres eliminar «${category.name}»? Las tareas asociadas quedarán sin categoría.")
+                Text(
+                    "¿Seguro que quieres eliminar «${category.name}»? " +
+                            "Las tareas asociadas quedarán sin categoría."
+                )
             },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete()
                     showDeleteDialog = false
                 }) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold)
+                    Text(
+                        "Eliminar",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showEditDialog) {
+        EditCategoryDialog(
+            category = category,
+            onDismiss = { showEditDialog = false },
+            onUpdate = { newName, newColor ->
+                onEdit(newName, newColor)
+                showEditDialog = false
             }
         )
     }
@@ -159,14 +195,16 @@ fun CategoryCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(12.dp)
         ) {
-            // Círculo de color grande
+            // Círculo de color
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -199,16 +237,28 @@ fun CategoryCard(
                 )
             }
 
+            // Botón editar
+            IconButton(onClick = { showEditDialog = true }) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Editar categoría",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+            }
+
+            // Botón eliminar
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Eliminar",
+                    contentDescription = "Eliminar categoría",
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                 )
             }
         }
     }
 }
+
+// ── Diálogo crear categoría ───────────────────────────────────────────────────
 
 @Composable
 fun CreateCategoryDialog(
@@ -230,19 +280,19 @@ fun CreateCategoryDialog(
                     label = { Text("Nombre *") },
                     placeholder = { Text("Ej: Trabajo, Personal...") },
                     isError = nameError,
-                    supportingText = if (nameError) { { Text("El nombre es obligatorio") } } else null,
+                    supportingText = if (nameError) {
+                        { Text("El nombre es obligatorio") }
+                    } else null,
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 Text(
                     "Color",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(categoryColors) { colorHex ->
                         val isSelected = colorHex == selectedColor
@@ -254,7 +304,9 @@ fun CreateCategoryDialog(
                                 .background(parseColor(colorHex))
                                 .then(
                                     if (isSelected) Modifier.border(
-                                        3.dp, MaterialTheme.colorScheme.onSurface, CircleShape
+                                        3.dp,
+                                        MaterialTheme.colorScheme.onSurface,
+                                        CircleShape
                                     ) else Modifier
                                 )
                                 .clickable { selectedColor = colorHex }
@@ -281,6 +333,89 @@ fun CreateCategoryDialog(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Crear", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
+// ── Diálogo editar categoría ──────────────────────────────────────────────────
+
+@Composable
+fun EditCategoryDialog(
+    category: CategoryEntity,
+    onDismiss: () -> Unit,
+    onUpdate: (name: String, colorHex: String) -> Unit
+) {
+    var name by remember { mutableStateOf(category.name) }
+    var selectedColor by remember { mutableStateOf(category.colorHex) }
+    var nameError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar categoría", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; nameError = false },
+                    label = { Text("Nombre *") },
+                    isError = nameError,
+                    supportingText = if (nameError) {
+                        { Text("El nombre es obligatorio") }
+                    } else null,
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "Color",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(categoryColors) { colorHex ->
+                        val isSelected = colorHex == selectedColor
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(parseColor(colorHex))
+                                .then(
+                                    if (isSelected) Modifier.border(
+                                        3.dp,
+                                        MaterialTheme.colorScheme.onSurface,
+                                        CircleShape
+                                    ) else Modifier
+                                )
+                                .clickable { selectedColor = colorHex }
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isBlank()) nameError = true
+                    else onUpdate(name, selectedColor)
+                },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Guardar", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

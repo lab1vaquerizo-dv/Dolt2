@@ -13,11 +13,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class TaskFilter { ALL, PENDING, COMPLETED }
+enum class TaskSort { BY_DATE, BY_PRIORITY }
 
 data class TaskListUiState(
     val tasks: List<TaskEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
     val filter: TaskFilter = TaskFilter.ALL,
+    val sort: TaskSort = TaskSort.BY_DATE,
     val searchQuery: String = "",
     val isLoading: Boolean = true
 )
@@ -30,6 +32,8 @@ class TaskListViewModel @Inject constructor(
 
     private val _filter = MutableStateFlow(TaskFilter.ALL)
     private val _searchQuery = MutableStateFlow("")
+
+    private val _sort = MutableStateFlow(TaskSort.BY_DATE)
     private val _categories = MutableStateFlow<List<CategoryEntity>>(emptyList())
 
     init {
@@ -42,36 +46,45 @@ class TaskListViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<TaskListUiState> = combine(
-        _filter,
-        _searchQuery,
-        _categories
-    ) { filter, query, categories -> Triple(filter, query, categories) }
-        .flatMapLatest { (filter, query, categories) ->
-            val source = when {
-                query.isNotBlank() -> taskRepository.searchTasks(query)
-                filter == TaskFilter.PENDING -> taskRepository.getPendingTasks()
-                filter == TaskFilter.COMPLETED -> taskRepository.getCompletedTasks()
-                else -> taskRepository.getAllTasks()
-            }
-            source.map { tasks ->
-                TaskListUiState(
-                    tasks = tasks,
-                    categories = categories,
-                    filter = filter,
-                    searchQuery = query,
-                    isLoading = false
-                )
-            }
+        _filter, _searchQuery, _categories, _sort
+    ) { filter, query, categories, sort ->
+        object {
+            val f = filter; val q = query; val c = categories; val s = sort
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = TaskListUiState(isLoading = true)
-        )
+    }.flatMapLatest { state ->
+        val source = when {
+            state.q.isNotBlank() -> taskRepository.searchTasks(state.q)
+            state.f == TaskFilter.PENDING -> taskRepository.getPendingTasks()
+            state.f == TaskFilter.COMPLETED -> taskRepository.getCompletedTasks()
+            else -> taskRepository.getAllTasks()
+        }
+        source.map { tasks ->
+            val sorted = when (state.s) {
+                TaskSort.BY_PRIORITY -> tasks.sortedByDescending { it.priority }
+                TaskSort.BY_DATE -> tasks
+            }
+            TaskListUiState(
+                tasks = sorted,
+                categories = state.c,
+                filter = state.f,
+                sort = state.s,
+                searchQuery = state.q,
+                isLoading = false
+            )
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = TaskListUiState(isLoading = true)
+    )
 
     fun setFilter(filter: TaskFilter) {
         _filter.value = filter
         _searchQuery.value = ""
+    }
+
+    fun setSort(sort: TaskSort) {
+        _sort.value = sort
     }
 
     fun setSearchQuery(query: String) {

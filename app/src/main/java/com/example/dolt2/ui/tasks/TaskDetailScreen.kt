@@ -119,7 +119,7 @@ fun TaskDetailScreen(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = uiState.dueDate?.let {
-                            SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(it))
+                            SimpleDateFormat("dd/MM/yy", Locale.getDefault()).format(Date(it))
                         } ?: "Fecha",
                         fontSize = 13.sp
                     )

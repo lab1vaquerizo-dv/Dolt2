@@ -45,9 +45,20 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
+
+
     fun deleteCategory(category: CategoryEntity) {
         viewModelScope.launch {
             categoryRepository.deleteCategory(category)
+        }
+    }
+
+    fun updateCategory(category: CategoryEntity, newName: String, newColor: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            categoryRepository.updateCategory(
+                category.copy(name = newName.trim(), colorHex = newColor)
+            )
         }
     }
 }

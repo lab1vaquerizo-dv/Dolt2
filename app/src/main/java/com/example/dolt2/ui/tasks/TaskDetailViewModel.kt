@@ -3,13 +3,19 @@ package com.example.dolt2.ui.tasks
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.dolt2.data.local.entity.CategoryEntity
 import com.example.dolt2.data.local.entity.TaskEntity
 import com.example.dolt2.data.repository.CategoryRepository
 import com.example.dolt2.data.repository.TaskRepository
+import com.example.dolt2.notifications.ReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class TaskDetailUiState(
@@ -29,7 +35,8 @@ data class TaskDetailUiState(
 class TaskDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val taskRepository: TaskRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val workManager: WorkManager
 ) : ViewModel() {
 
     private val taskId: Long? = savedStateHandle["taskId"]
@@ -84,7 +91,7 @@ class TaskDetailViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            if (state.taskId == null) {
+            val id = if (state.taskId == null) {
                 taskRepository.insertTask(
                     TaskEntity(
                         title = state.title.trim(),
@@ -105,8 +112,38 @@ class TaskDetailViewModel @Inject constructor(
                         categoryId = state.categoryId
                     )
                 )
+                state.taskId
             }
+
+            // Programar notificación si hay fecha límite
+            state.dueDate?.let { dueDate ->
+                scheduleNotification(id, state.title, state.description, dueDate)
+            }
+
             _uiState.update { it.copy(isSaved = true) }
+        }
+    }
+
+    private fun scheduleNotification(taskId: Long, title: String, description: String, dueDate: Long) {
+        val delay = dueDate - System.currentTimeMillis()
+        if (delay > 0) {
+            val data = Data.Builder()
+                .putLong(ReminderWorker.KEY_TASK_ID, taskId)
+                .putString(ReminderWorker.KEY_TASK_TITLE, title)
+                .putString(ReminderWorker.KEY_TASK_DESC, description)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+                .setInputData(data)
+                .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                .addTag("reminder_$taskId")
+                .build()
+
+            workManager.enqueueUniqueWork(
+                "reminder_$taskId",
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
         }
     }
 }

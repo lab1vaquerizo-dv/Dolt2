@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.compose.material:material:1.7.5")
+
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

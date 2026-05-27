@@ -10,10 +10,10 @@ import javax.inject.Inject
 class DoltApplication : Application(), Configuration.Provider {
 
     @Inject
-    lateinit var hiltWorkManagerConfiguration: Configuration
+    lateinit var workerConfiguration: Configuration
 
     override val workManagerConfiguration: Configuration
-        get() = hiltWorkManagerConfiguration
+        get() = workerConfiguration
 
     override fun onCreate() {
         super.onCreate()
