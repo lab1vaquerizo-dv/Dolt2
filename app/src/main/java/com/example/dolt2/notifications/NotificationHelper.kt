@@ -46,12 +46,12 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText(description ?: "Tienes una tarea pendiente")
+            .setContentText(description?.ifBlank { null } ?: "Tienes una tarea pendiente")
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText(description ?: "Tienes una tarea pendiente")
+                    .bigText(description?.ifBlank { null } ?: "Tienes una tarea pendiente")
             )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)

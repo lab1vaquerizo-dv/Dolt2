@@ -10,10 +10,12 @@ import javax.inject.Inject
 class DoltApplication : Application(), Configuration.Provider {
 
     @Inject
-    lateinit var workerConfiguration: Configuration
+    lateinit var workerFactory: androidx.hilt.work.HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
-        get() = workerConfiguration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     override fun onCreate() {
         super.onCreate()

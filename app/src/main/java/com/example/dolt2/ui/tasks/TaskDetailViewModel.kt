@@ -91,7 +91,7 @@ class TaskDetailViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val id = if (state.taskId == null) {
+            val id: Long = if (state.taskId == null) {
                 taskRepository.insertTask(
                     TaskEntity(
                         title = state.title.trim(),
@@ -125,25 +125,35 @@ class TaskDetailViewModel @Inject constructor(
     }
 
     private fun scheduleNotification(taskId: Long, title: String, description: String, dueDate: Long) {
-        val delay = dueDate - System.currentTimeMillis()
-        if (delay > 0) {
-            val data = Data.Builder()
-                .putLong(ReminderWorker.KEY_TASK_ID, taskId)
-                .putString(ReminderWorker.KEY_TASK_TITLE, title)
-                .putString(ReminderWorker.KEY_TASK_DESC, description)
-                .build()
-
-            val request = OneTimeWorkRequestBuilder<ReminderWorker>()
-                .setInputData(data)
-                .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-                .addTag("reminder_$taskId")
-                .build()
-
-            workManager.enqueueUniqueWork(
-                "reminder_$taskId",
-                ExistingWorkPolicy.REPLACE,
-                request
-            )
+        val now = System.currentTimeMillis()
+        var delay = dueDate - now
+        
+        // Si la hora ya pasó por poco (margen de 10 min), la programamos para "ya" (2 seg)
+        // Esto evita que se pierdan notificaciones por tardar en guardar o por segundos de desfase.
+        if (delay <= 0) {
+            if (delay > -600000) { // 10 minutos de margen
+                delay = 2000 // 2 segundos
+            } else {
+                return // Demasiado tarde
+            }
         }
+
+        val data = Data.Builder()
+            .putLong(ReminderWorker.KEY_TASK_ID, taskId)
+            .putString(ReminderWorker.KEY_TASK_TITLE, title)
+            .putString(ReminderWorker.KEY_TASK_DESC, description)
+            .build()
+
+        val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+            .setInputData(data)
+            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+            .addTag("reminder_$taskId")
+            .build()
+
+        workManager.enqueueUniqueWork(
+            "reminder_$taskId",
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 }

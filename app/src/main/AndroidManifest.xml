@@ -27,18 +27,13 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
-                  android:exported="false"
-                  android:directBootAware="false"
-                  tools:replace="android:directBootAware"/>
-
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="androidx.work.WorkInitializer"
+                android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>

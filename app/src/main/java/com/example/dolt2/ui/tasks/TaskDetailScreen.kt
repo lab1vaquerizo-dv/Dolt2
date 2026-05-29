@@ -252,18 +252,34 @@ fun TaskDetailScreen(
                 TextButton(onClick = {
                     val selectedMs = datePickerState.selectedDateMillis
                     if (selectedMs != null) {
-                        // Preservar la hora actual si ya había una fecha
-                        val cal = Calendar.getInstance()
-                        val existing = uiState.dueDate
-                        if (existing != null) {
-                            val existingCal = Calendar.getInstance().apply { timeInMillis = existing }
-                            cal.timeInMillis = selectedMs
-                            cal.set(Calendar.HOUR_OF_DAY, existingCal.get(Calendar.HOUR_OF_DAY))
-                            cal.set(Calendar.MINUTE, existingCal.get(Calendar.MINUTE))
-                        } else {
-                            cal.timeInMillis = selectedMs
-                            cal.set(Calendar.HOUR_OF_DAY, 9)
-                            cal.set(Calendar.MINUTE, 0)
+                        // DatePickerState devuelve UTC medianoche. Convertimos a local manteniendo el día.
+                        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                            timeInMillis = selectedMs
+                        }
+                        val cal = Calendar.getInstance().apply {
+                            set(Calendar.YEAR, utcCal.get(Calendar.YEAR))
+                            set(Calendar.MONTH, utcCal.get(Calendar.MONTH))
+                            set(Calendar.DAY_OF_MONTH, utcCal.get(Calendar.DAY_OF_MONTH))
+                            
+                            val existing = uiState.dueDate
+                            if (existing != null) {
+                                val existingCal = Calendar.getInstance().apply { timeInMillis = existing }
+                                set(Calendar.HOUR_OF_DAY, existingCal.get(Calendar.HOUR_OF_DAY))
+                                set(Calendar.MINUTE, existingCal.get(Calendar.MINUTE))
+                            } else {
+                                // Si es hoy, poner la hora actual + 1 hora. Si es futuro, 9:00 AM.
+                                val now = Calendar.getInstance()
+                                if (get(Calendar.YEAR) == now.get(Calendar.YEAR) &&
+                                    get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)) {
+                                    set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY) + 1)
+                                    set(Calendar.MINUTE, 0)
+                                } else {
+                                    set(Calendar.HOUR_OF_DAY, 9)
+                                    set(Calendar.MINUTE, 0)
+                                }
+                            }
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
                         }
                         viewModel.onDueDateChange(cal.timeInMillis)
                     }
@@ -300,6 +316,7 @@ fun TaskDetailScreen(
                         set(Calendar.HOUR_OF_DAY, timePickerState.hour)
                         set(Calendar.MINUTE, timePickerState.minute)
                         set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
                     }
                     viewModel.onDueDateChange(newCal.timeInMillis)
                     showTimePicker = false
